@@ -3,6 +3,20 @@ import { HydratedDocument } from "mongoose";
 import { ItemCategory, ItemCondition, ItemStatus } from "src/item/domain/constants/enums";
 
 
+@Schema({ _id: false })
+class ImageSubSchema {
+  @Prop({ required: true })
+  url: string;
+
+  @Prop({ required: true, default: false })
+  isPrimary: boolean;
+
+  @Prop({ required: true })
+  ObjectId: string;
+}
+
+const ImageSubSchemaFactory = SchemaFactory.createForClass(ImageSubSchema);
+
 @Schema()
 export class ItemEntity{
     @Prop()
@@ -20,10 +34,13 @@ export class ItemEntity{
     @Prop()
     statusEnum: ItemStatus
 
-    
-    // images: [{url: string, isPrimary: boolean, ObjectId: string}]
+    @Prop({ type: [ImageSubSchemaFactory], default: [] })
+    images: ImageSubSchema[];
+
     // sellerUserId: ObjectID
 }
+
+
 
 export type ItemDocument = HydratedDocument<ItemEntity>
 export const ItemSchema = SchemaFactory.createForClass(ItemEntity)

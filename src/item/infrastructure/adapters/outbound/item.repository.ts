@@ -14,8 +14,8 @@ export class ItemRepository implements ItemRepositoryPort{
         private readonly itemModel: Model<ItemDocument>,
     ) {}
 
-    async createItem(body: createItemCommand): Promise<Item> {
-        const insertItem = ItemMapper.toPersistence(body)
+    async createItem(item: Item): Promise<Item> {
+        const insertItem = ItemMapper.toPersistence(item)
         const createdItem = new this.itemModel(insertItem)
         await createdItem.save()
         return ItemMapper.toDomain(createdItem)

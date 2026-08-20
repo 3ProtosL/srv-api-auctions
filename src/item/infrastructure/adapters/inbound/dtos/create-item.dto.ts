@@ -19,8 +19,7 @@ export class CreateItemDto {
 
     @IsNotEmpty()
     @IsEnum(ItemCondition)
-    condition: ItemCondition
-    // images: [{url: string, isPrimary: boolean, ObjectId: string}]
+    condition: ItemCondition 
 
     @IsNotEmpty()
     @IsEnum(ItemStatus)

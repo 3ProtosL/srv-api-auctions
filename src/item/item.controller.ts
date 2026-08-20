@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { CreateItemDto } from './infrastructure/adapters/inbound/dtos/create-item.dto';
 import { UpdateItemDto } from './infrastructure/adapters/inbound/dtos/update-item.dto';
 import { CreateItemUseCase } from './aplication/use-cases/create-item.use-case';
 import { Item } from './domain/models/items';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { Express } from 'express'; 
+import 'multer';
 
 @Controller('item')
 export class ItemController {
@@ -10,8 +13,15 @@ export class ItemController {
     private readonly createitemUsecase: CreateItemUseCase) {}
 
   @Post()
-  create(@Body() createItemDto: CreateItemDto): Promise<Item> {
-    return this.createitemUsecase.execute(createItemDto);
+  @UseInterceptors(FilesInterceptor('images'))
+  create(@Body() createItemDto: CreateItemDto, @UploadedFiles() files: Express.Multer.File[]): Promise<Item> {
+    const filesToUpload = files.map((file) => ({
+      buffer: file.buffer,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    })) || [];
+
+    return this.createitemUsecase.execute({...createItemDto, files: filesToUpload});
   }
 
   // @Get()
