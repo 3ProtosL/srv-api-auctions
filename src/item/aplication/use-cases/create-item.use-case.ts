@@ -16,12 +16,10 @@ export class CreateItemUseCase implements CreateItemUseCasePort {
     ) {}
 
     async execute({ files = [], ...cmd }: createItemCommand & { files?: FileToUpload[] }): Promise<Item> {
-        // Subida paralela de imágenes en una sola expresión
         const images = await Promise.all(
             files.map((file, i) => this.storage.uploadImage(file, i === 0))
         );
 
-        // Creación y persistencia directa de la Entidad
         return this.itemRepository.createItem(
             new Item("", cmd.title, cmd.description, cmd.category, cmd.condition, images, cmd.statusEnum)
         );
