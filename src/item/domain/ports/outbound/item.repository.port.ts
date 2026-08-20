@@ -3,5 +3,5 @@ import { createItemCommand } from "../inbound/create-item.use-case.port";
 
 
 export abstract class ItemRepositoryPort {
-    abstract createItem(body: createItemCommand): Promise<Item>
+    abstract createItem(ietm: Item): Promise<Item>
 }

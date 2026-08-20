@@ -8,7 +8,7 @@ export interface createItemCommand{
     description: string,
     category: ItemCategory,
     condition: ItemCondition,
-    // images: [{url: string, isPrimary: boolean, ObjectId: string}]
+    images?: {url: string, isPrimary: boolean, ObjectId: string}[],
     statusEnum: ItemStatus,
     // sellerUserId: ObjectID
 }
