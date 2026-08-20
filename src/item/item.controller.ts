@@ -15,7 +15,7 @@ export class ItemController {
   @Post()
   @UseInterceptors(FilesInterceptor('images'))
   create(@Body() createItemDto: CreateItemDto, @UploadedFiles() files: Express.Multer.File[]): Promise<Item> {
-    const filesToUpload = files?.map((file) => ({
+    const filesToUpload = files.map((file) => ({
       buffer: file.buffer,
       originalname: file.originalname,
       mimetype: file.mimetype,

@@ -12,7 +12,7 @@ class ImageSubSchema {
   isPrimary: boolean;
 
   @Prop({ required: true })
-  ObjectId: string; // Guarda el $id de Appwrite
+  ObjectId: string;
 }
 
 const ImageSubSchemaFactory = SchemaFactory.createForClass(ImageSubSchema);
