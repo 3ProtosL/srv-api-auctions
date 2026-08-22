@@ -1,8 +1,10 @@
+// src/item/infrastructure/adapters/outbound/appwrite-storage.adapter.ts
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Client, Storage, ID } from 'node-appwrite';
 import { InputFile } from 'node-appwrite/file';
+
 import { AppwriteUploadedImage, FileToUpload, StoragePort } from 'src/item/domain/ports/outbound/storage.port';
+import { envs } from 'src/shared/env';
 
 @Injectable()
 export class AppwriteStorageAdapter implements StoragePort {
@@ -11,20 +13,19 @@ export class AppwriteStorageAdapter implements StoragePort {
   private rawEndpoint: string;
   private projectId: string;
 
-  constructor(private readonly configService: ConfigService) {
-    const rawEndpointEnv = this.configService.get<string>('APPWRITE_ENDPOINT') || 'https://sfo.cloud.appwrite.io/v1';
+  constructor() {
+    const rawEndpointEnv = envs.appwrite.endpoint;
     
     const cleanEndpoint = rawEndpointEnv.replace(/\/+$/, '');
     this.rawEndpoint = cleanEndpoint.endsWith('/v1') ? cleanEndpoint : `${cleanEndpoint}/v1`;
 
-    this.projectId = this.configService.getOrThrow<string>('APPWRITE_PROJECT_ID');
-    this.bucketId = this.configService.getOrThrow<string>('APPWRITE_BUCKET_ID');
-    const apiKey = this.configService.getOrThrow<string>('APPWRITE_API_KEY');
+    this.projectId = envs.appwrite.projectId;
+    this.bucketId = envs.appwrite.bucketId;
 
     const client = new Client()
       .setEndpoint(this.rawEndpoint)
       .setProject(this.projectId)
-      .setKey(apiKey);
+      .setKey(envs.appwrite.apiKey);
 
     this.storage = new Storage(client);
   }
