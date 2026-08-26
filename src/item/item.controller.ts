@@ -14,6 +14,7 @@ import { FindItemsUseCase } from './aplication/use-cases/find-items.use-case';
 import { ItemsPagination } from './domain/models/items-pagination';
 import { DeleteItemUseCase } from './aplication/use-cases/delete-item.use-case';
 import { UpdateItemUseCase } from './aplication/use-cases/update-item.use-case';
+import { ParseFormDataInterceptor } from 'src/shared/interceptors/parse-form-data.interceptor';
 
 @Controller('item')
 export class ItemController {
@@ -44,30 +45,19 @@ export class ItemController {
   @Get(':id')
   getItem(@Param('id') id: string): Promise<Item> {
     return this.getItemUseCase.execute(id)
-    }
+  }
 
 
-  // hace falta modificacion, debido a que no se pueden seleccionar las imagenes a actualizar :p  
+
   @Patch(':id')
-  @UseInterceptors(FilesInterceptor('images'))
+  @UseInterceptors(FilesInterceptor('newFiles'), ParseFormDataInterceptor)
   async update(
     @Param('id') id: string,
-    @Body() updateItemDto: UpdateItemDto,
-    @UploadedFiles() files?: Express.Multer.File[],
-    ) {
-
-    const newFiles = files?.map(f => ({
-      buffer: f.buffer,
-      originalname: f.originalname,
-      mimetype: f.mimetype,
-    }));
-
-    return await this.updateItemUseCase.execute({
-      _id: id,
-      ...updateItemDto,
-      newFiles,
-    });
+    @Body() dto: UpdateItemDto,
+  ) {
+    return await this.updateItemUseCase.execute({ _id: id, ...dto });
   }
+  
 
   @Delete(':id')
   remove(@Param('id') id: string) {
