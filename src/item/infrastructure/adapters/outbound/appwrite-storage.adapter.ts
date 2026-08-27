@@ -30,6 +30,14 @@ export class AppwriteStorageAdapter implements StoragePort {
     this.storage = new Storage(client);
   }
 
+ async deleteFile(fileId: string): Promise<void> {
+    try {
+        await this.storage.deleteFile(envs.appwrite.bucketId, fileId);
+      } catch (error) {
+        console.error(`Error al eliminar el archivo ${fileId} en Appwrite:`, error);
+      }
+  }
+
   async uploadImage(file: FileToUpload, isPrimary: boolean = false): Promise<AppwriteUploadedImage> {
     const inputFile = InputFile.fromBuffer(file.buffer, file.originalname);
 

@@ -12,5 +12,6 @@ export interface AppwriteUploadedImage {
 
 export abstract class StoragePort{
     abstract uploadImage(file: FileToUpload, isPrimary?: boolean): Promise<AppwriteUploadedImage>;
+    abstract deleteFile(fileId: string): Promise<void>
 }
 
