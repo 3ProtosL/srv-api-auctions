@@ -1,6 +1,6 @@
 import { Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
-import { HttpException, HttpStatus} from "@nestjs/common";
+import { BadRequestException, HttpException, HttpStatus} from "@nestjs/common";
 
 import { Item } from "src/item/domain/models/items";
 import { ItemMapper } from "../../persistence/mappers/item.mapper";
@@ -10,7 +10,6 @@ import { decodeCursor, encodeCursor } from "src/shared/encode";
 import { ItemRepositoryPort } from "src/item/domain/ports/outbound/item.repository.port";
 import { ItemsPagination } from "src/item/domain/models/items-pagination";
 import { FindItemsCommand } from "src/item/domain/ports/inbound/find-items.use-case.port";
-import { UpdateItemDto } from '../inbound/dtos/update-item.dto';
 import { UpdateItemCommand } from "src/item/domain/ports/inbound/update-item.use-case.port";
 
 
@@ -29,106 +28,121 @@ export class ItemRepository implements ItemRepositoryPort{
         return ItemMapper.toDomain(createdItem)
     }
 
-    async findItems(
-        input: FindItemsCommand,
-    ): Promise<ItemsPagination> {
-        const {
-            limit = 10,
-            nextCursor,
-            previousCursor,
-            sortBy = 'createdAt',
-            sortDirection = 'desc',
-        } = input
+    async findItems(input: FindItemsCommand): Promise<ItemsPagination> {
+    const {
+        limit = 10,
+        nextCursor,
+        previousCursor,
+        sortBy = 'createdAt',
+        sortDirection = 'desc',
+    } = input;
 
-        const isReverse = !!previousCursor
-        const sortOrderNumber = isReverse
-            ? sortDirection === 'asc'
-                ? -1
-                : 1
-            : sortDirection === 'asc'
-              ? 1
-              : -1
-        const query = {}
-        const cursor = nextCursor || previousCursor
-        if (cursor) {
-            try {
-                const [customValue, id] = decodeCursor(cursor)
-                const _id = new Types.ObjectId(id)
-                const operator = sortOrderNumber === 1 ? '$gt' : '$lt'
+    const isReverse = !!previousCursor;
+    const sortOrderNumber = isReverse
+        ? sortDirection === 'asc' ? -1 : 1
+        : sortDirection === 'asc' ? 1 : -1;
 
-                query['$or'] = [
-                    { [sortBy]: { [operator]: customValue } },
-                    {
-                        [sortBy]: customValue,
-                        _id: { [operator]: _id },
-                    },
-                ]
-            } catch (error) {
-                throw new Error('Invalid cursor')
+    const query: Record<string, any> = {};
+    const cursor = nextCursor || previousCursor;
+
+    if (cursor) {
+        let customValue: any;
+        let idStr: string;
+
+        // 1. Decodificar y validar el cursor
+        try {
+            [customValue, idStr] = decodeCursor(cursor);
+
+            // Validar que el ID sea un ObjectId legítimo de MongoDB
+            if (!idStr || !Types.ObjectId.isValid(idStr)) {
+                throw new Error("Invalid ObjectId format");
             }
+        } catch {
+            // Lanza HTTP 400 inmediato. Cancela el flujo sin ejecutar query.
+            throw new BadRequestException("El cursor proporcionado no es válido o está corrupto");
         }
 
-        const items = await this.itemModel
-            .find(query)
-            .sort({ [sortBy]: sortOrderNumber, _id: sortOrderNumber })
-            .limit(limit + 1)
-            .lean()
-            .exec()
+        const _id = new Types.ObjectId(idStr);
+        const operator = sortOrderNumber === 1 ? '$gt' : '$lt';
 
-        if (isReverse) items.reverse()
-
-        let hasNext = false
-        let hasPrevious = false
-
-        if (nextCursor) {
-            hasPrevious = true
-            if (items.length > limit) {
-                hasNext = true
-                items.pop()
-            }
-        } else if (previousCursor) {
-            hasNext = true
-            if (items.length > limit) {
-                hasPrevious = true
-                items.shift()
-            }
-        } else {
-            if (items.length > limit) {
-                hasNext = true
-                items.pop()
-            }
+        // 2. CORRECCIÓN DE TIPO: Convertir a Date si el valor decodificado es una cadena ISO de fecha
+        let parsedCustomValue = customValue;
+        if (typeof customValue === 'string' && !isNaN(Date.parse(customValue))) {
+            parsedCustomValue = new Date(customValue);
         }
 
-        const firstItem = items[0]
-        const lastItem = items[items.length - 1]
-
-        let nextCursorRes: string | null = null
-        let previousCursorRes: string | null = null
-
-        if (hasNext && lastItem) {
-            nextCursorRes = encodeCursor(
-                lastItem[sortBy],
-                lastItem._id.toString(),
-            )
-        }
-
-        if (hasPrevious && firstItem) {
-            previousCursorRes = encodeCursor(
-                firstItem[sortBy],
-                firstItem._id.toString(),
-            )
-        }
-
-        return {
-            data: items.map((p) => ItemMapper.toDomain(p)),
-            meta: {
-                hasNext,
-                hasPrevious,
-                nextCursor: nextCursorRes,
-                previousCursor: previousCursorRes,
+        // 3. Construcción del Keyset Query
+        query['$or'] = [
+            { [sortBy]: { [operator]: parsedCustomValue } },
+            {
+                [sortBy]: parsedCustomValue,
+                _id: { [operator]: _id },
             },
+        ];
+    }
+
+    // 4. Consulta a MongoDB
+    const items = await this.itemModel
+        .find(query)
+        .sort({ [sortBy]: sortOrderNumber, _id: sortOrderNumber })
+        .limit(limit + 1)
+        .lean()
+        .exec();
+
+    if (isReverse) items.reverse();
+
+    let hasNext = false;
+    let hasPrevious = false;
+
+    if (nextCursor) {
+        hasPrevious = true;
+        if (items.length > limit) {
+            hasNext = true;
+            items.pop();
+        }
+    } else if (previousCursor) {
+        hasNext = true;
+        if (items.length > limit) {
+            hasPrevious = true;
+            items.shift();
+        }
+    } else {
+        if (items.length > limit) {
+            hasNext = true;
+            items.pop();
         }
     }
+
+    const firstItem = items[0];
+    const lastItem = items[items.length - 1];
+
+    let nextCursorRes: string | null = null;
+    let previousCursorRes: string | null = null;
+
+    if (hasNext && lastItem) {
+        nextCursorRes = encodeCursor(
+            lastItem[sortBy],
+            lastItem._id.toString(),
+        );
+    }
+
+    if (hasPrevious && firstItem) {
+        previousCursorRes = encodeCursor(
+            firstItem[sortBy],
+            firstItem._id.toString(),
+        );
+    }
+
+    return {
+        data: items.map((p) => ItemMapper.toDomain(p)),
+        meta: {
+            hasNext,
+            hasPrevious,
+            nextCursor: nextCursorRes,
+            previousCursor: previousCursorRes,
+        },
+    };
+}
 
     async getItem(id: string): Promise<Item> {
         const item = await this.validateItem(id)
@@ -159,10 +173,8 @@ export class ItemRepository implements ItemRepositoryPort{
         return ItemMapper.toDomain(item!)
     }
 
-    async delete(id: string){
-        await this.getItem(id)
-        await this.itemModel.findByIdAndDelete(id)
-     
-        return  { message: `el item con el id "${id}" fue eliminado`}
+    async delete(id: string): Promise<{ message: string }> {
+        await this.itemModel.findByIdAndDelete(id);
+        return { message: `El ítem con el id "${id}" fue eliminado` };
     }
 }

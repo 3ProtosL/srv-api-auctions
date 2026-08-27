@@ -26,26 +26,45 @@ export class UpdateItemUseCase implements UpdateItemUseCasePort {
         }
 
         const incoming = command.incomingImages ?? [];
+        const keptImagesMap = new Map(incoming.map(img => [img.ObjectId, img.isPrimary]));
 
-        const keptImages = incoming.filter(img => Boolean(img.ObjectId));
-        const keptObjectIds = new Set(keptImages.map(img => img.ObjectId));
+        const keptImages: any[] = [];
+        const idsToDelete: string[] = [];
+        let hasPrimaryInKept = false;
 
+        // 1. Un solo recorrido O(N) para clasificar imágenes
+        for (const oldImg of currentItem.images) {
+            if (keptImagesMap.has(oldImg.ObjectId)) {
+                const isPrimary = keptImagesMap.get(oldImg.ObjectId) ?? oldImg.isPrimary;
+                if (isPrimary) hasPrimaryInKept = true;
+
+                keptImages.push({
+                    ...oldImg,
+                    isPrimary,
+                });
+            } else {
+                idsToDelete.push(oldImg.ObjectId);
+            }
+        }
+
+        // 2. Subida en paralelo de fotos nuevas
         const newlyUploadedImages = command.newFiles?.length
             ? await Promise.all(
                 command.newFiles.map((file, index) =>
-                    this.storagePort.uploadImage(file, keptImages.length === 0 && index === 0)
+                    this.storagePort.uploadImage(file, !hasPrimaryInKept && index === 0)
                 )
               )
             : [];
 
-        const finalImagesList = [...keptImages, ...newlyUploadedImages];
+        let finalImagesList = [...keptImages, ...newlyUploadedImages];
 
-        const imagesToDelete = currentItem.images.filter(
-            oldImg => !keptObjectIds.has(oldImg.ObjectId)
-        );
+        // 3. Fallback de Portada: Garantizar que al menos la primera imagen sea 'isPrimary'
+        if (finalImagesList.length > 0 && !finalImagesList.some(img => img.isPrimary)) {
+            finalImagesList[0] = { ...finalImagesList[0], isPrimary: true };
+        }
 
-        if (imagesToDelete.length > 0) {
-            this.deleteImagesAsync(imagesToDelete.map(img => img.ObjectId));
+        if (idsToDelete.length > 0) {
+            this.deleteImagesAsync(idsToDelete);
         }
 
         return this.itemRepository.updateItem({

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer'
+import { Type, Transform } from 'class-transformer';
 import {
     IsOptional,
     IsInt,
@@ -6,28 +6,30 @@ import {
     Min,
     Max,
     IsNotEmpty,
-} from 'class-validator'
+} from 'class-validator';
 
 export class PaginationItemssDto {
     @Type(() => Number)
     @IsInt()
     @Min(1)
     @Max(100)
-    limit: number
+    limit: number;
 
     @IsOptional()
     @IsString()
-    nextCursor?: string // Ahora será un string en Base64 que oculta el estado del cursor compuesto
+    @Transform(({ value }) => (value?.trim() === '' ? undefined : value))
+    nextCursor?: string;
 
     @IsOptional()
     @IsString()
-    previousCursor?: string
+    @Transform(({ value }) => (value?.trim() === '' ? undefined : value))
+    previousCursor?: string;
 
     @IsString()
     @IsNotEmpty()
-    sortBy: string
+    sortBy: string = '_id'; // Valor por defecto conveniente
 
     @IsString()
     @IsNotEmpty()
-    sortDirection: string
+    sortDirection: string = 'DESC'; // Valor por defecto conveniente
 }

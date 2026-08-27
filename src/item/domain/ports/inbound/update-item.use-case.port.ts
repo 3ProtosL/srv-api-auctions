@@ -5,7 +5,6 @@ import { Item } from "../../models/items";
 import { FileToUpload } from "../outbound/storage.port";
 
 export interface ItemImagePayload {
-    url?: string;
     isPrimary?: boolean;
     ObjectId?: string; 
 }
